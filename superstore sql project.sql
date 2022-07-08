@@ -1,205 +1,206 @@
-select * from dbo.Orders$
-select cast([order date] as date) from dbo.Orders$
-select cast([ship date] as date) from dbo.Orders$
+SELECT * FROM dbo.Orders$
+SELECT CAST([order date] AS DATE) FROM dbo.Orders$
+SELECT CAST([ship date] AS DATE) FROM dbo.Orders$
+
 -- inorder to change the orderdate and shipdate format ftom datetime to date
-
-alter table orders$
- add neworderdate date
+ALTER TABLE orders$
+ ADD neworderdate DATE
  --to make permanenet changes to the table by inserting values into the new column
- update Orders$
- set neworderdate= convert(date,[order date])
+ UPDATE Orders$
+ SET neworderdate= CONVERT(DATE,[order date])
  -- to add for ship date
- alter table orders$
- add newshipdate date
+ ALTER TABLE orders$
+ ADD newshipdate DATE
  --to make permanenet changes to the table by inserting values into the new column
- update Orders$
- set newshipdate=convert(date,[ship date])
+ UPDATE Orders$
+ SET newshipdate=CONVERT(DATE,[ship date])
  ---- to add a new column of   month
- select DATENAME(MONTH,neworderdate) from dbo.Orders$
- alter table orders$
- add [monthname] nvarchar(50)
+ SELECT DATENAME(MONTH,neworderdate) FROM dbo.Orders$
+ ALTER TABLE orders$
+ ADD [monthname] NVARCHAR(50)
 
- update Orders$
- set [monthname]=datename(month,neworderdate
+ UPDATE Orders$
+ SET [monthname]=DATENAME(MONTH,neworderdate)
 
  -- we want to delete the order date and ship date column inorder to clean our dataset
 -- to ensure data integrity we can use transaction in sql inorder for us to undo incase 
-begin transaction tolu
-alter table orders$
-drop column [order date],[ship date]
--- to check if the column was dropped
-select * from dbo.Orders$
+BEGIN TRANSACTION tolu
+ALTER TABLE orders$
+DROP COLUMN [order date],[ship date]
 -- inorder to undo just incase we  needs the column we use rollback transaction 
-rollback transaction tolu
+ROLLBACK TRANSACTION tolu
  
 
 -- to chcek to see if the table has a duplicate by  checkig how mnay distinct values
- select distinct * from dbo.orders$
+ SELECT DISTINCT * FROM dbo.orders$
  
  -- lets remove duplicate inorder to perform proper analysis
  -- we use cte and row_number partitiion
 
- with  ordercte as
+ WITH ordercte AS
  (
- select *,ROW_NUMBER() over( partition by [order id],[ship mode],[customer id],[sales rep],[product id],[neworderdate], profit,[location id],discount order by[product id]) row_num 
- from dbo.Orders$
- ) delete from ordercte where row_num>1
+ SELECT *,ROW_NUMBER() OVER( PARTITION BY [order id],[ship mode],[customer id],[sales rep],[product id],[neworderdate], profit,[location id],discount order by[product id]) row_num 
+ FROM dbo.Orders$
+ ) DELETE FROM ordercte WHERE row_num>1
 
 -- lets create a tempoary table to join the tabels together
-create table #tempoary
-( orderid nvarchar(100),
-customerid nvarchar(250),
-orderdate date,
+CREATE TABLE #tempoary
+( orderid NVARCHAR(100),
+customerid NVARCHAR(250),
+orderdate DATE,
 shipdate date,
-productid nvarchar (250),
-locationid nvarchar(250),
-shipmode nvarchar(210),
-profit int
+productid NVARCHAR (250),
+locationid NVARCHAR(250),
+shipmode NVARCHAR(210),
+profit INT
 )
-insert into #tempoary
-select [order id],[customer id],neworderdate,[newshipdate],[Product ID],[Location ID],[Ship Mode], profit 
-from dbo.orders$
+INSERT INTO #tempoary
+SELECT [order id],[customer id],neworderdate,[newshipdate],[Product ID],[Location ID],[Ship Mode], profit 
+FROM dbo.orders$
 
-select * from #tempoary
+SELECT * FROM #tempoary
 -- creating a secondary tempoary tabel two hold the first tempoary table and and a join to the product table
-create table #tempoary2
-( orderid nvarchar(100),
-customerid nvarchar(250),
-orderdate date,
-shipdate date,
-productid nvarchar (250),
-locationid nvarchar(250),
-shipmode nvarchar(210),
-profit int,
-category nvarchar(50),
-subcategory nvarchar(50)
+CREATE TABLE #tempoary2
+( orderid NVARCHAR(100),
+customerid NVARCHAR(250),
+orderdate DATE,
+shipdate DATE,
+productid NVARCHAR (250),
+locationid NVARCHAR(250),
+shipmode NVARCHAR(210),
+profit INT,
+category NVARCHAR(50),
+subcategory NVARCHAR(50)
 )
 
 
-insert into #tempoary2
-select orderid,customerid,orderdate,shipdate,productid,locationid,shipmode, profit ,category,[Sub-Category]
-from dbo.#tempoary
-join  dbo.products$
-on
+INSERT INTO #tempoary2
+SELECT orderid,customerid,orderdate,shipdate,productid,locationid,shipmode, profit ,category,[Sub-Category]
+FROM dbo.#tempoary
+JOIN  dbo.products$
+ON
 dbo.#tempoary.productid=dbo.products$.[product id]
 
-select * from #tempoary2
+SELECT * FROM #tempoary2
 
 -- first we create a third tempoary table 
 -- then  we combined 3 tables togethher using join inorder to make a table for analyses
 -- the 3 tables combined includes location, #tempoary and customer table
- create table temmpoaryordertable1
- (orderid nvarchar(100),
- customerid nvarchar(10),
- orderdate date,
- shipdate date,
- productid nvarchar(250),
- locationid nvarchar(250),
- shipmode nvarchar(210),
- profit int,
- category nvarchar (50),
- subcategory nvarchar(50),
- [state] nvarchar(50),
- region nvarchar(60),
+ CREATE TABLE temmpoaryordertable1
+ (orderid NVARCHAR(100),
+ customerid  NVARCHAR(10),
+ orderdate DATE,
+ shipdate DATE,
+ productid NVARCHAR(250),
+ locationid NVARCHAR(250),
+ shipmode NVARCHAR(210),
+ profit INT,
+ category NVARCHAR (50),
+ subcategory NVARCHAR(50),
+ [state] NVARCHAR(50),
+ region NVARCHAR(60),
  )
  
- insert into temmpoaryordertable1
-select orderid,customerid,orderdate,shipdate,productid,locationid,shipmode, profit ,category,subcategory,[state],Region
-from dbo.#tempoary2
-join
+ INSERT INTO temmpoaryordertable1
+SELECT orderid,customerid,orderdate,shipdate,productid,locationid,shipmode, profit ,category,subcategory,[state],Region
+FROM dbo.#tempoary2
+JOIN
 dbo.location$
-on
+ON
 location$.[location id]=#tempoary2.locationid
-join
+JOIN
 customers$
-on
+ON
 #tempoary2.customerid=customers$.[customer id]
 
 -----------------------
-select * from temmpoaryordertable1
+SELECT* FROM temmpoaryordertable1
 
 
  --- to see which month had the higest order
-select [monthname],COUNT([orderid]) as total from dbo.Orders$
-group by [monthname]
-order by 2 desc
+SELECT  [monthname],COUNT([orderid]) AS total FROM dbo.Orders$
+GROUP BY [monthname]
+ORDER BY 2 DESC
 
- select * from Orders$
+ SELECT * FROM Orders$
  -- for us to decide the ship mode that brought in most profit
- select sum( profit) as totalsumprofit,[ship mode] from dbo.Orders$
- group by [Ship Mode]
- order by totalsumprofit desc
+ SELECT SUM( profit) AS totalsumprofit,[ship mode] FROM dbo.Orders$
+ GROUP BY [Ship Mode]
+ ORDER BY totalsumprofit DESC
  -- to see the distinct number of sales rep
- select distinct([sales rep]) from dbo.Orders$
+ SELECT DISTINCT ([sales rep]) FROM dbo.Orders$
  -- to see the amount of profit each sale rep made
- select sum(profit) as totalsumprofit,[sales rep] from dbo.Orders$
- group by [Sales Rep]
+ SELECT SUM(profit) AS totalsumprofit,[sales rep] FROM dbo.Orders$
+ GROUP BY [Sales Rep]
  -- we can alternatively use  order by totalsumprofit instead of 1 same works the same
- order by 1 desc
+ ORDER BY 1 DESC
 
 -- to join orders table with loaction table we use the join statement
-select * from dbo.Location$
+SELECT * FROM dbo.Location$
 
 
 -- lets use a dervied table and joins to some calculations
 -- to get the sum of profit by state and sorting from highest to lowest
-declare @locationorder table(state nvarchar(50),city nvarchar(50),region nvarchar(50),profit int)
-insert into @locationorder
-select state,city,region,profit
-from dbo.Orders$
-join
+DECLARE @locationorder TABLE(STATE NVARCHAR(50),city NVARCHAR(50),region NVARCHAR(50),profit INT)
+INSERT INTO @locationorder
+SELECT STATE,city,region,profit
+FROM dbo.Orders$
+JOIN
 dbo.Location$
 on dbo.Orders$.[Location ID]=dbo.Location$.[Location ID]
-select state,sum(profit) as totalsumprofit from @locationorder
-group by state
-order by 2 desc
+SELECT STATE,SUM(profit) AS totalsumprofit FROM @locationorder
+GROUP BY STATE
+ORDER BY 2 DESC
 
 
 ----- lets use cte and pivotable to do some analzing with joins
 --- we usae pivotablle and common tabel expression
 
-with cte (productname,category ,profit ) as
+WITH cte (productname,category ,profit ) AS
 (
-select [product name],category,profit from dbo.orders$
-join dbo.products$ 
-on 
+SELECT [product name],category,profit FROM dbo.orders$
+JOIN dbo.products$ 
+ON
 dbo.orders$.[product id]=dbo.products$.[product id]
 )
 -- we isnull incase null values comes u to replace null with 0
-select Productname, isnull (Furniture,0) as Furniture, isnull([Office supplies],0) as [Office Suplies], isnull (Technology,0) as Technology
-from(select productname,category,profit
-from cte )
-as purchasetable
-pivot
-( sum(profit) for category IN (Furniture,[Office Supplies],Technology) )
+SELECT Productname, ISNULL (Furniture,0) AS Furniture, ISNULL([Office supplies],0) AS [Office Suplies], ISNULL (Technology,0) AS Technology
+FROM(SELECT productname,category,profit
+FROM cte )
+AS purchasetable
+PIVOT
+( SUM(profit) FOR category IN (Furniture,[Office Supplies],Technology) )
 AS PIVOTTABLE
 
 --- A subqieery to help get the information of customer  with the hihest profit
-select * from dbo.orders$
-where   profit =(select max(profit) from dbo.orders$) 
+SELECT * FROM dbo.orders$
+WHERE   profit =(SELECT MAX(profit) FROM dbo.orders$) 
 
-select * from temmpoaryordertable1
+SELECT  * FROM temmpoaryordertable1
 -- to get the region with the higest order
-select region, count(orderid) from dbo.temmpoaryordertable1 group by region
+SELECT region, COUNT(orderid) FROM dbo.temmpoaryordertable1 GROUP BY region
 
 -- to view the relation of number or orders with profit
-select region ,sum(profit) as totalprofit, count(orderid) as totalorder from dbo. temmpoaryordertable1  group by region
+SELECT region ,SUM(profit) AS totalprofit, COUNT(orderid) AS totalorder FROM dbo. temmpoaryordertable1 
+GROUP BY region
 
 
 -- to view the total number of order in relation to ship mode and profit
-select shipmode, count(distinct(orderid)) as totalorders, sum(profit) as totalprofit from dbo.temmpoaryordertable1 group by shipmode
+SELECT shipmode, COUNT (DISTINCT(orderid)) AS totalorders, SUM(profit) AS totalprofit FROM dbo.temmpoaryordertable1
+GROUP BY shipmode
 
 -- to get thr top states with the higest order and profit
-select top 10 state, count(ORDERID)as totalcount, sum(profit) as totalprofit FROM DBO.temmpoaryordertable1 group by state order by 2 desc
+SELECT TOP 10 STATE, COUNT(ORDERID) AS totalcount, SUM(profit) AS totalprofit FROM DBO.temmpoaryordertable1 
+GROUP BY STATE ORDER BY 2 DESC
 
 ---  a stored procedure that helps us to get the information of a person anytime 
-create procedure sporders
-@state nvarchar(100),
-@customerid nvarchar(50)
-as
-begin
-select * from temmpoaryordertable1 where [state]=@state and customerid=@customerid
-end
+CREATE PROCEDURE sporders
+@state NVARCHAR(100),
+@customerid NVARCHAR(50)
+AS
+BEGIN
+SELECT * FROM temmpoaryordertable1 WHERE [state]=@state and customerid=@customerid
+END
 -- how to execute a stored procedure
 sporders 'florida','dc-12850'
 
